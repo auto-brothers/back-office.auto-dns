@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +29,44 @@ type ServerRequest struct {
 	Result string
 }
 
+func getPublicIpAddress() string {
+	log.Printf("Getting public ip address")
+
+	client := http.Client{}
+
+	log.Printf("Creating new http request")
+	req, err := http.NewRequest(http.MethodGet, "https://api.ipify.org/", nil)
+	if err != nil {
+		log.Printf("http.NewRequest: %+v", err)
+		return ""
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Printf("client.Do: %+v", err)
+		return ""
+	}
+
+	log.Printf("Successfully executed http request. Status code was: %+v", res.StatusCode)
+
+	if res.StatusCode != http.StatusOK {
+		log.Printf("Unexpected status code. Response: %+v", res)
+		return ""
+	}
+
+	log.Printf("Parsing response")
+
+	ipAddress, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("io.ReadAll: %+v", err)
+		return ""
+	}
+
+	log.Printf("ipAddress: %s", ipAddress)
+
+	return string(ipAddress)
+}
+
 func main() {
 	if BACK_OFFICE_URL == "" {
 		panic("BACK_OFFICE_URL environment not set")
@@ -48,10 +87,12 @@ func main() {
 }
 
 func callServer() {
+	ipAddress := getPublicIpAddress()
+
 	client := http.Client{}
 
 	log.Printf("Creating new http request")
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/clients/me/commands", BACK_OFFICE_URL), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/clients/me/commands?ipAddress=%s", BACK_OFFICE_URL, ipAddress), nil)
 	if err != nil {
 		log.Printf("http.NewRequest: %+v", err)
 		return
