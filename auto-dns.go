@@ -51,7 +51,7 @@ func callServer() {
 	client := http.Client{}
 
 	log.Printf("Creating new http request")
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/clients/me/commands", BACK_OFFICE_URL), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/nucs/me/commands", BACK_OFFICE_URL), nil)
 	if err != nil {
 		log.Printf("http.NewRequest: %+v", err)
 		return
@@ -140,7 +140,7 @@ func callServer() {
 		return
 	}
 
-	req, err = http.NewRequest("PATCH", fmt.Sprintf("%s/api/v1/clients/me/commands/%s", BACK_OFFICE_URL, serverResponse.Id), bytes.NewBuffer(serverRequestJson))
+	req, err = http.NewRequest("PATCH", fmt.Sprintf("%s/api/v1/nucs/me/commands/%s", BACK_OFFICE_URL, serverResponse.Id), bytes.NewBuffer(serverRequestJson))
 	req.Header = http.Header{
 		"accept":        {"*/*"},
 		"Authorization": {fmt.Sprintf("Basic %s", BACK_OFFICE_API_KEY)},
