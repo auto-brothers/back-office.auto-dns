@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,8 +16,11 @@ import (
 
 var BACK_OFFICE_URL = os.Getenv("BACK_OFFICE_URL")
 var BACK_OFFICE_API_KEY = os.Getenv("BACK_OFFICE_API_KEY")
-var intervals = []int{1, 1, 1, 2, 2, 2, 2, 2, 5, 5, 5, 10, 10, 20, 30}
+var REPORT_PUBLIC_IP = os.Getenv("REPORT_PUBLIC_IP")
+
 var next_call_index = 30
+
+var ipAddress string
 
 type ServerResponse struct {
 	Id   string
@@ -28,6 +32,51 @@ type ServerRequest struct {
 	Result string
 }
 
+func getPublicIpAddress() {
+	log.Printf("Getting public ip address")
+
+	client := http.Client{}
+
+	log.Printf("Creating new http request")
+	req, err := http.NewRequest(http.MethodGet, "https://api.ipfgdify.org/", nil)
+	if err != nil {
+		log.Printf("http.NewRequest: %+v", err)
+		return
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Printf("client.Do: %+v", err)
+		return
+	}
+
+	log.Printf("Successfully executed http request. Status code was: %+v", res.StatusCode)
+
+	if res.StatusCode != http.StatusOK {
+		log.Printf("Unexpected status code. Response: %+v", res)
+		return
+	}
+
+	log.Printf("Parsing response")
+
+	ipAddressBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("io.ReadAll: %+v", err)
+		return
+	}
+
+	log.Printf("ipAddress: %s", ipAddressBytes)
+
+	ipAddress = string(ipAddressBytes)
+}
+
+func updateIPAddressPeriodically(interval time.Duration) {
+	for {
+		getPublicIpAddress()
+		time.Sleep(interval)
+	}
+}
+
 func main() {
 	if BACK_OFFICE_URL == "" {
 		panic("BACK_OFFICE_URL environment not set")
@@ -36,6 +85,12 @@ func main() {
 	if BACK_OFFICE_API_KEY == "" {
 		panic("BACK_OFFICE_API_KEY environment not set")
 	}
+
+	if REPORT_PUBLIC_IP != "" {
+		go updateIPAddressPeriodically(60 * time.Second)
+	}
+
+	intervals := []int{1, 1, 1, 2, 2, 2, 2, 2, 5, 5, 5, 10, 10, 20, 30}
 
 	for {
 		callServer()
@@ -50,8 +105,8 @@ func main() {
 func callServer() {
 	client := http.Client{}
 
-	log.Printf("Creating new http request")
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/nucs/me/commands", BACK_OFFICE_URL), nil)
+	log.Printf("Creating new http request. IPAddress: %s", ipAddress)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/nucs/me/commands?ipAddress=%s", BACK_OFFICE_URL, ipAddress), nil)
 	if err != nil {
 		log.Printf("http.NewRequest: %+v", err)
 		return
@@ -141,6 +196,10 @@ func callServer() {
 	}
 
 	req, err = http.NewRequest("PATCH", fmt.Sprintf("%s/api/v1/nucs/me/commands/%s", BACK_OFFICE_URL, serverResponse.Id), bytes.NewBuffer(serverRequestJson))
+	if err != nil {
+		log.Printf("http.NewRequest: %+v", err)
+		return
+	}
 	req.Header = http.Header{
 		"accept":        {"*/*"},
 		"Authorization": {fmt.Sprintf("Basic %s", BACK_OFFICE_API_KEY)},
