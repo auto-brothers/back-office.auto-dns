@@ -38,7 +38,7 @@ func getPublicIpAddress() {
 	client := http.Client{}
 
 	log.Printf("Creating new http request")
-	req, err := http.NewRequest(http.MethodGet, "https://api.ipfgdify.org/", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://api.ipify.org/", nil)
 	if err != nil {
 		log.Printf("http.NewRequest: %+v", err)
 		return
